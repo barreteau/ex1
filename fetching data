@@ -1,0 +1,46 @@
+from coinapic import CoinAPIc
+import datetime
+import requests
+
+
+
+## step 1: writing code for fetching historical data
+
+
+# my APICoin key:
+test_key = '2668554A-E343-4670-9485-AC76A8E08A2F'
+
+api = CoinAPIc(test_key)
+
+
+exchanges = api.metadata_list_exchanges()
+
+
+
+def historical_data(assetID):
+
+    #start :
+    start_of_2016 = datetime.date(2016, 1, 1).isoformat()
+    
+    # access to the symbols list
+    symbols = api.metadata_list_symbols()
+    for symbol in symbols:
+
+        # we only want the data for 1 asset
+        if assetID == symbol['asset_id_base']:
+            ohlcv_historical = api.ohlcv_historical_data(symbol['symbol_id'], {'period_id': '2YRS', 'time_start': start_of_2016})
+
+
+            # print out the historical data
+            for period in ohlcv_historical:
+                print('Period start: %s' % period['time_period_start'])
+                print('Period end: %s' % period['time_period_end'])
+                print('Time open: %s' % period['time_open'])
+                print('Time close: %s' % period['time_close'])
+                print('Price open: %s' % period['price_open'])
+                print('Price close: %s' % period['price_close'])
+                print('Price low: %s' % period['price_low'])
+                print('Price high: %s' % period['price_high'])
+                print('Volume traded: %s' % period['volume_traded'])
+                print('Trades count: %s' % period['trades_count'])
+    
