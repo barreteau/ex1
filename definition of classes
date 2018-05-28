@@ -1,0 +1,135 @@
+import urllib.request
+import urllib.parse
+import gzip
+import json
+
+PRODUCTION_URL = 'https://rest.coinapi.io/v1%s'
+
+class HTTPClient:
+
+#Create the constructor
+    def __init__(self, endpoint, headers = dict(), params = dict()):
+        self.url = PRODUCTION_URL % endpoint
+        self.params = params
+        self.headers = headers
+
+
+#Create the response
+    def perform(self):
+        resource = self.url
+
+        if self.params:
+            query_string = urllib.parse.urlencode(self.params)
+            resource = '%s?%s' % (self.url, query_string)
+
+        request = urllib.request.Request(resource, headers=self.headers)
+        handler = urllib.request.urlopen(request)
+        raw_response = handler.read()
+
+#decompress data
+        if 'Accept-Encoding' in self.headers:
+            if self.headers['Accept-Encoding'] == 'deflat, gzip':
+                raw_response = gzip.decompress(raw_response)
+
+        encoding = handler.info().get_content_charset('utf-8')
+        response = json.loads(raw_response.decode(encoding))
+        return response
+
+
+#definition of different usefull classes with endpoint, to have an access to different data
+
+class MetadataListExchangesRequest:
+    def endpoint(self):
+        return '/exchanges'
+
+class MetadataListAssetsRequest:
+    def endpoint(self):
+        return '/assets'
+
+class MetadataListSymbolsRequest:
+    def endpoint(self):
+        return '/symbols'
+
+
+
+class OHLCVListAllPeriodsRequest:
+    def endpoint(self):
+        return '/ohlcv/periods'
+
+class OHLCVLatestDataRequest:
+    def __init__(self, symbol_id, query_parameters = dict()):
+        self.symbol_id = symbol_id
+        self.query_parameters = query_parameters
+
+    def endpoint(self):
+        return '/ohlcv/%s/latest' % self.symbol_id
+
+class OHLCVHistoricalDataRequest:
+    def __init__(self, symbol_id, query_parameters = dict()):
+        self.symbol_id = symbol_id
+        self.query_parameters = query_parameters
+
+    def endpoint(self):
+        return '/ohlcv/%s/history' % self.symbol_id
+
+
+
+class TradesHistoricalDataRequest:
+    def __init__(self, symbol_id, query_parameters = dict()):
+        self.symbol_id = symbol_id
+        self.query_parameters = query_parameters
+
+    def endpoint(self):
+        return '/trades/%s/history' % self.symbol_id
+
+
+# Class that I use in my other script to fetch the historical data
+
+class CoinAPIc:
+    DEFAULT_HEADERS = {
+        'Accept': 'application/json'
+    }
+
+# Constructor
+    def __init__(self, api_key, headers = dict(), client_class=HTTPClient):
+        self.api_key = api_key
+        header_apikey = {'X-CoinAPI-Key': self.api_key}
+        self.headers = {**self.DEFAULT_HEADERS, **headers, **header_apikey}
+        self.client_class = client_class
+
+    def with_header(self, header, value):
+        old_headers = self.headers
+        new_header = {header: value}
+        return CoinAPIv1(self.api_key, {**old_headers, **new_header})
+
+    def with_headers(self, additional_headers):
+        old_headers = self.headers
+        return CoinAPIv1(self.api_key, {**old_headers, **additional_headers})
+
+
+# different request to access to different lists (exchanges, assets, symbols)
+    def metadata_list_exchanges(self):
+        request = MetadataListExchangesRequest()
+        client = self.client_class(request.endpoint(), self.headers)
+        return client.perform()
+
+    def metadata_list_assets(self):
+        request = MetadataListAssetsRequest()
+        client = self.client_class(request.endpoint(), self.headers)
+        return client.perform()
+
+    def metadata_list_symbols(self):
+        request = MetadataListSymbolsRequest()
+        client = self.client_class(request.endpoint(), self.headers)
+        return client.perform()
+
+# request to access to historical data
+
+    def ohlcv_historical_data(self,
+                              symbol_id,
+                              query_parameters):
+        request = OHLCVHistoricalDataRequest(symbol_id, query_parameters)
+        client = self.client_class(request.endpoint(),
+                                   self.headers,
+                                   request.query_parameters)
+        return client.perform()
