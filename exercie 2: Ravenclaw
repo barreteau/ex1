@@ -1,0 +1,114 @@
+
+
+import psycopg2
+from coinapi_v1 import CoinAPIv1
+import datetime
+import requests
+
+test_key = '2668554A-E343-4670-9485-AC76A8E08A2F'
+
+api = CoinAPIv1(test_key)
+exchanges = api.metadata_list_exchanges()
+ 
+ 
+def create_tables():
+    """ create tables in the PostgreSQL database"""
+    commands = (
+        """
+        CREATE TABLE  cryptocurrencies(
+            asset_id TEXT PRIMARY KEY NOT NULL
+            
+           
+        )
+        """,
+        """ CREATE TABLE ohlcv_hist_data ( 
+                time_start DATETIME PRIMARY KEY NOT NULL
+                time_end DATETIME
+                time_open DATETIME
+                time_close DATETIME 
+                price_open REAL
+                price_close REAL
+                price_low REAL
+                price_high REAL
+                volume_traded REAL
+                trades_count REAL
+              
+                )
+
+        """)
+    conn = None
+    try:
+
+        # connect to the PostgreSQL server
+        conn = psycopg2.connect(database = "mabase", user = "postgres", password = "popiloli", host = "127.0.0.1", port = "5432")
+        cur = conn.cursor()
+        # create table one by one
+        for command in commands:
+            cur.execute(command)
+        # close communication with the PostgreSQL database server
+        cur.close()
+        # commit the changes
+        conn.commit()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+    finally:
+        if conn is not None:
+            conn.close()
+ 
+ 
+if __name__ == '__main__':
+    create_tables()
+
+
+
+
+
+
+
+
+
+
+
+
+
+def insert_historical_data(hist_data):
+    start_of_2016 = datetime.date(2016, 1, 1).isoformat()
+    symbols = api.metadata_list_symbols()
+    assets = ['BTC','ETH','XRP','LTC','XLM']
+
+    conn = None
+   
+    try:
+
+        # connect to the PostgreSQL database
+        conn = psycopg2.connect(database = "mabase", user = "postgres", password = "popiloli", host = "127.0.0.1", port = "5432")
+        # create a new cursor
+        cur = conn.cursor()
+        # execute the INSERT statement
+        for assetID in assets:
+            for symbol in symbols:
+                if assetID == symbol['asset_id_base']:
+                    ohlcv_historical = api.ohlcv_historical_data(symbol['symbol_id'], {'period_id': '1MIN', 'time_start': start_of_2016})
+
+                    for period in ohlcv_historical:
+                        cur.execute("INSERT INTO cryptocurrencies (asset_id) \ VALUES (%s)" %assetID);
+                        cur.execute("INSERT INTO ohlcv_hist_data (time_start, time_end, time_open, time_close, price_open, price_close, price_low, price_high, volume_traded, trades_count) \
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" %(period['time_period_start'], period['time_period_end'], period['time_open'], period['time_close'], period['price_open'], period['price_close'], period['price_low'], period['price_high'], period['volume_traded'], period['trades_count']);
+                
+                
+                
+                
+                
+                    
+
+        # commit the changes to the database
+        conn.commit()
+        # close communication with the database
+        cur.close()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+    finally:
+        if conn is not None:
+            conn.close()
+ 
+ 
